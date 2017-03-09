@@ -1,5 +1,6 @@
 #include <Servo.h> 
 #include "Adafruit_NeoPixel.h"
+#include "Communication.h"
 
 //Flora Pixel Defines
 #define AMOUNT_OF_FLORA_PIXELS 1
@@ -56,6 +57,7 @@ void setupPins(){
 void setup() {
   Serial.begin(BAUD_RATE);
   setupPins();
+  //scanDevices();
 
   pixels.begin();
   pixels.setPixelColor(0, pixels.Color(0,0,0));
