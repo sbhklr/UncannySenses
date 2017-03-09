@@ -81,6 +81,22 @@ void setServoPosition(Servo servo, int position){
   servo.write(position);
 }
 
+void shakeHead(int speedPercentage = 100) {
+  int originalFeetPosition = servoFeet.read();
+  setServoPosition(servoFeet, originalFeetPosition - 10);
+  delay(100);
+  setServoPosition(servoFeet, originalFeetPosition + 20);
+  delay(100);
+  setServoPosition(servoFeet, originalFeetPosition);
+  delay(100);
+}
+
+bool shouldBackOff(){
+  int proximity = calculate_distance(analogRead(IR_PIN));
+  bool objectIsClose = proximity < CloseProximity;
+  return objectIsClose;
+}
+
 void gotoSleep(){
   if(!isAwake){ return; }
   setServoPosition(servoFeet, FEET_SLEEP_ANGLE);
@@ -102,31 +118,19 @@ void lookAround(){
   int originalFeetPosition = servoFeet.read();
   int originalHeadPosition = servoHead.read();
 
-  setServoPosition(servoFeet, originalFeetPosition - random(FEET_LOOKAROUND_ANGLE));  
+  setServoPosition(servoFeet, originalFeetPosition - random(FEET_LOOKAROUND_ANGLE));
+  if(shouldBackOff()){shakeHead(); return;}  
   delay(750);
   setServoPosition(servoFeet, originalFeetPosition + random(FEET_LOOKAROUND_ANGLE));
+  if(shouldBackOff()){shakeHead(); return;}  
   delay(1000);
   setServoPosition(servoFeet, originalFeetPosition);
+  if(shouldBackOff()){shakeHead(); return;}  
   delay(350);
   setServoPosition(servoHead, servoHead.read() + HEAD_LOOKAROUND_ANGLE);
+  if(shouldBackOff()){shakeHead(); return;}  
   delay(1500);
   setServoPosition(servoHead, originalHeadPosition);
-}
-
-void shakeHead(int speedPercentage = 100) {
-  int originalFeetPosition = servoFeet.read();
-  setServoPosition(servoFeet, originalFeetPosition - 10);
-  delay(100);
-  setServoPosition(servoFeet, originalFeetPosition + 20);
-  delay(100);
-  setServoPosition(servoFeet, originalFeetPosition);
-  delay(100);
-}
-
-bool shouldBackOff(){
-  int proximity = calculate_distance(analogRead(IR_PIN));
-  bool objectIsClose = proximity < CloseProximity;
-  return objectIsClose;
 }
 
 int secondsSinceLastAwakening(){
@@ -143,6 +147,8 @@ void loop() {
     delay(1500);
     lookAround();    
   }
+
+  if(shouldBackOff()){shakeHead(); return;}  
 
   if(secondsSinceLastAwakening() >= SLEEP_TIMEOUT) gotoSleep();
 
