@@ -1,16 +1,23 @@
 #include <Servo.h> 
+//#include "Random.h"
 
 #define PIR_PIN 7
 #define IR_PIN A0
 #define SERVO_FEET_PIN 3
-#define SERVO_HEAD_PIN 9
+#define SERVO_HEAD_PIN 6
 #define SERVO_CALIBRATE_PIN 11
 #define BAUD_RATE 9600
 
-#define SLEEP_TIMEOUT 10
-#define HEAD_LOOKUP_ANGLE 75
-#define FEED_WAKEUP_TARGET_ANGLE 90
-#define HEAD_WAKEUP_TARGET_ANGLE 180 - HEAD_LOOKUP_ANGLE
+#define SLEEP_TIMEOUT 8
+
+#define HEAD_SLEEP_ANGLE 60
+#define FEET_SLEEP_ANGLE 90
+
+#define FEET_WAKEUP_ANGLE 45
+#define HEAD_WAKEUP_ANGLE 45
+
+#define FEET_LOOKAROUND_ANGLE 20
+#define HEAD_LOOKAROUND_ANGLE 20
 
 Servo servoFeet;
 Servo servoHead;
@@ -19,13 +26,10 @@ Servo servoCalibration;
 bool isAwake = true;
 unsigned long lastAwake = 0;
 
-int currentHeadPosition = 0;
-int currentFeetPosition = 0;
-
-enum Proximity {
-  Close = 4,
-  Medium = 10,
-  Far = 20
+enum IRProximity {
+  CloseProximity = 6,
+  MediumProximity = 10,
+  FarProximity = 20
 };
 
 void setupPins(){
@@ -50,6 +54,14 @@ void calibrate(){
   servoCalibration.write(180);
 }
 
+int randomDirection(){
+  return random(2) == 0 ? -1 : 1;
+}
+
+bool randomBool(){
+  return random(2) == 0 ? true : false;
+}
+
 int calculate_distance(int readVal) {
   //float volts = (float)readVal * 0.0048828125;
   int distance = (2914 / (readVal + 5)) - 1;
@@ -67,27 +79,54 @@ void moveServo(Servo servo, int from, int to, int step = 1, int delayTime = 15){
 
 void setServoPosition(Servo servo, int position){
   servo.write(position);
-  if(&servo == &servoHead) currentHeadPosition = position;
-  else if(&servo == &servoFeet) currentFeetPosition = position;
 }
 
 void gotoSleep(){
   if(!isAwake){ return; }
-  setServoPosition(servoFeet,0);
-  setServoPosition(servoHead,180);
+  setServoPosition(servoFeet, FEET_SLEEP_ANGLE);
+  setServoPosition(servoHead, HEAD_SLEEP_ANGLE);
   isAwake = false;
 }
 
 void wakeUp(){
+  lastAwake = millis();  
   if(isAwake){ return; }
-  setServoPosition(servoFeet, FEED_WAKEUP_TARGET_ANGLE);
-  setServoPosition(servoHead, HEAD_WAKEUP_TARGET_ANGLE);
+
+  int direction = randomDirection();
+  setServoPosition(servoFeet, servoFeet.read() + FEET_WAKEUP_ANGLE * direction);
+  setServoPosition(servoHead, servoHead.read() + HEAD_WAKEUP_ANGLE);
   isAwake = true;
-  lastAwake = millis();
 }
 
 void lookAround(){
-  setServoPosition(servoHead,180 - 45);
+  int originalFeetPosition = servoFeet.read();
+  int originalHeadPosition = servoHead.read();
+
+  setServoPosition(servoFeet, originalFeetPosition - random(FEET_LOOKAROUND_ANGLE));  
+  delay(750);
+  setServoPosition(servoFeet, originalFeetPosition + random(FEET_LOOKAROUND_ANGLE));
+  delay(1000);
+  setServoPosition(servoFeet, originalFeetPosition);
+  delay(350);
+  setServoPosition(servoHead, servoHead.read() + HEAD_LOOKAROUND_ANGLE);
+  delay(1500);
+  setServoPosition(servoHead, originalHeadPosition);
+}
+
+void shakeHead(int speedPercentage = 100) {
+  int originalFeetPosition = servoFeet.read();
+  setServoPosition(servoFeet, originalFeetPosition - 10);
+  delay(100);
+  setServoPosition(servoFeet, originalFeetPosition + 20);
+  delay(100);
+  setServoPosition(servoFeet, originalFeetPosition);
+  delay(100);
+}
+
+bool shouldBackOff(){
+  int proximity = calculate_distance(analogRead(IR_PIN));
+  bool objectIsClose = proximity < CloseProximity;
+  return objectIsClose;
 }
 
 int secondsSinceLastAwakening(){
@@ -95,13 +134,14 @@ int secondsSinceLastAwakening(){
   return (millis() - lastAwake) / 1000;
 }
 
-void loop() {
-  unsigned long timestamp = millis();
+void loop() {  
   int proximity = calculate_distance(analogRead(IR_PIN));
   Serial.println(proximity);
   
-  if(proximity < Close){
+  if(proximity < MediumProximity && !isAwake){
     wakeUp();
+    delay(1500);
+    lookAround();    
   }
 
   if(secondsSinceLastAwakening() >= SLEEP_TIMEOUT) gotoSleep();
