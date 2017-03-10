@@ -151,16 +151,16 @@ void lookAround(){
   int originalHeadPosition = servoHead.read();
 
   setServoPosition(servoFeet, originalFeetPosition - random(FEET_LOOKAROUND_ANGLE));
-  if(shouldBackOff()){lookUp(); return;}  
+  if(shouldBackOff()){shakeHead(); return;}  
   delay(750);
   setServoPosition(servoFeet, originalFeetPosition + random(FEET_LOOKAROUND_ANGLE));
-  if(shouldBackOff()){lookUp(); return;}  
+  if(shouldBackOff()){shakeHead(); return;}  
   delay(1000);
   setServoPosition(servoFeet, originalFeetPosition);
-  if(shouldBackOff()){lookUp(); return;}  
+  if(shouldBackOff()){shakeHead(); return;}  
   delay(350);
   setServoPosition(servoHead, servoHead.read() + HEAD_LOOKAROUND_ANGLE);
-  if(shouldBackOff()){lookUp(); return;}  
+  if(shouldBackOff()){shakeHead(); return;}  
   delay(1500);
   setServoPosition(servoHead, originalHeadPosition);
 }
@@ -182,7 +182,7 @@ void loop() {
     lookAround();    
   }
 
-  if(shouldBackOff()){lookUp(); return;}  
+  if(shouldBackOff()){shakeHead(); return;}  
 
   if(secondsSinceLastAwakening() >= SLEEP_TIMEOUT) gotoSleep();
 
