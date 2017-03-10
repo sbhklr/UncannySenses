@@ -1,4 +1,5 @@
 #include <Servo.h> 
+#include <Wire.h>
 #include "Adafruit_NeoPixel.h"
 #include "Communication.h"
 
@@ -14,6 +15,12 @@
 #define SERVO_HEAD_PIN 6
 #define SERVO_CALIBRATE_PIN 11
 #define BAUD_RATE 9600
+
+#define I2C_ID 2
+#define I2C_OK 'k'
+#define I2C_WAKEUP 'w'
+#define I2C_SLEEP 's'
+#define I2C_ATTENTION 'a'
 
 #define SLEEP_TIMEOUT 8
 
@@ -57,7 +64,10 @@ void setupPins(){
 void setup() {
   Serial.begin(BAUD_RATE);
   setupPins();
-  //scanDevices();
+
+  Wire.begin(I2C_ID);
+  Wire.onRequest(onRequestEvent);
+  Wire.onReceive(onReceiveEvent);
 
   pixels.begin();
   pixels.setPixelColor(0, pixels.Color(0,0,0));
@@ -70,6 +80,27 @@ void setup() {
 void calibrate(){  
   servoCalibration.attach(SERVO_CALIBRATE_PIN);
   servoCalibration.write(180);
+}
+
+void onRequestEvent()
+{
+  Wire.write(I2C_OK);
+}
+
+void onReceiveEvent(int howMany)
+{
+  for(int i=0; i < howMany; ++i){
+      if(!Wire.available()) break;
+      char cmd = Wire.read();
+      
+      if(cmd == I2C_WAKEUP){
+        wakeUp();
+      } else if(cmd == I2C_SLEEP){
+        gotoSleep();
+      } else if(cmd == I2C_ATTENTION){
+        //TODO
+      }
+  }
 }
 
 void pulsateFloraLED(){
