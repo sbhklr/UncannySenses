@@ -19,10 +19,10 @@
 #define SERVO_CALIBRATE_PIN 11
 #define BUZZER_PIN 2
 
+#define USE_I2C true
 #define I2C_ID_MASTER 2
 #define I2C_ID_SLAVE1 3
 #define I2C_ID_SLAVE2 4
-#define I2C_ID_SELF I2C_ID_MASTER
 #define I2C_IS_MASTER true
 
 #define I2C_WAKEUP 'w'
@@ -72,11 +72,14 @@ void setup() {
   Serial.begin(BAUD_RATE);
   setupPins();
 
+  #if USE_I2C
   Wire.begin(I2C_ID_MASTER);
+  Wire.onReceive(onReceiveEvent);
+  #endif
+
   #if ! I2C_IS_MASTER
   Wire.onRequest(onRequestEvent);
   #endif
-  Wire.onReceive(onReceiveEvent);
 
   pixels.begin();
   pixels.setPixelColor(0, pixels.Color(0,0,0));
