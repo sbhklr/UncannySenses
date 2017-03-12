@@ -1,20 +1,23 @@
 #include <Servo.h> 
 #include <Wire.h>
+#include "SoundEffects.h"
 #include "Adafruit_NeoPixel.h"
 #include "Communication.h"
 
+#define BAUD_RATE 9600
+
 //Flora Pixel Defines
 #define AMOUNT_OF_FLORA_PIXELS 1
-#define FLORA_LED_PIN 8
 #define FLORA_MAX_BRIGHTNESS 255
 #define FLORA_BRIGHTNESS_STEP_SIZE 10
 
+#define FLORA_LED_PIN 8
 #define PIR_PIN 7
 #define IR_PIN A0
 #define SERVO_FEET_PIN 3
 #define SERVO_HEAD_PIN 6
 #define SERVO_CALIBRATE_PIN 11
-#define BAUD_RATE 9600
+#define BUZZER_PIN 2
 
 #define I2C_ID 2
 #define I2C_OK 'k'
@@ -25,13 +28,10 @@
 #define SLEEP_TIMEOUT 8
 
 #define HEAD_LOOKUP_ANGLE 150
-
 #define HEAD_SLEEP_ANGLE 60
 #define FEET_SLEEP_ANGLE 90
-
 #define FEET_WAKEUP_ANGLE 45
 #define HEAD_WAKEUP_ANGLE 45
-
 #define FEET_LOOKAROUND_ANGLE 20
 #define HEAD_LOOKAROUND_ANGLE 20
 
@@ -138,6 +138,7 @@ void setServoPosition(Servo servo, int position){
 }
 
 void shakeHead() {
+  ohhhSound(BUZZER_PIN);
   int originalFeetPosition = servoFeet.read();
   setServoPosition(servoFeet, originalFeetPosition - 10);
   delay(100);
@@ -160,6 +161,7 @@ bool shouldBackOff(){
 void gotoSleep(){
   if(!isAwake){ return; }
   Serial.println("Go to sleep.");
+  ohnoSound(BUZZER_PIN);
   setServoPosition(servoFeet, FEET_SLEEP_ANGLE);
   setServoPosition(servoHead, HEAD_SLEEP_ANGLE);
   isAwake = false;
@@ -169,6 +171,7 @@ void wakeUp(){
   lastAwake = millis();  
   if(isAwake){ return; }
   Serial.println("Wake up.");
+  squeakSound(BUZZER_PIN);
 
   int direction = randomDirection();
   setServoPosition(servoFeet, servoFeet.read() + FEET_WAKEUP_ANGLE * direction);

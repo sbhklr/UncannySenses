@@ -1,7 +1,5 @@
-
-
-#ifndef HEADERFILE_H
-#define HEADERFILE_H
+#ifndef COMMUNICATION_H
+#define COMMUNICATION_H
 
 void scanDevices();
 
