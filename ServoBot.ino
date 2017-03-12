@@ -22,6 +22,9 @@
 #define I2C_ID_MASTER 2
 #define I2C_ID_SLAVE1 3
 #define I2C_ID_SLAVE2 4
+#define I2C_ID_SELF I2C_ID_MASTER
+#define I2C_IS_MASTER true
+
 #define I2C_WAKEUP 'w'
 #define I2C_SLEEP 's'
 #define I2C_ATTENTION 'a'
@@ -36,7 +39,8 @@
 #define FEET_LOOKAROUND_ANGLE 20
 #define HEAD_LOOKAROUND_ANGLE 20
 
-int i2cDeviceIDs[] = {I2C_ID_MASTER, I2C_ID_SLAVE1, I2C_ID_SLAVE2};
+//int i2cDeviceIDs[] = {I2C_ID_SLAVE1, I2C_ID_SLAVE2};
+int i2cDeviceIDs[] = {I2C_ID_MASTER, I2C_ID_SLAVE2};
 Servo servoFeet;
 Servo servoHead;
 Servo servoCalibration;
@@ -69,7 +73,9 @@ void setup() {
   setupPins();
 
   Wire.begin(I2C_ID_MASTER);
+  #if ! I2C_IS_MASTER
   Wire.onRequest(onRequestEvent);
+  #endif
   Wire.onReceive(onReceiveEvent);
 
   pixels.begin();
@@ -85,47 +91,84 @@ void calibrate(){
   servoCalibration.write(180);
 }
 
-void onRequestEvent() {
+void processI2CCommand(int senderID, char cmd){
+  if(cmd == 0) return;
+
+  if(cmd == I2C_WAKEUP){
+    wakeUp();
+  } else if(cmd == I2C_SLEEP){
+    gotoSleep();
+  } else if(cmd == I2C_ATTENTION){
+    //TODO
+  }
+}
+
+char getI2CCommand(){
   if(isAwake){
-    Wire.write(I2C_WAKEUP);
+    return I2C_WAKEUP;
+  } else {    
+    return 0;
+  }
+}
+
+void onRequestEvent() {
+  char cmd = getI2CCommand();
+
+  if(cmd != 0){
+    Wire.write(cmd);
   }
 }
 
 void onReceiveEvent(int howMany) {
+  
+  Serial.println("Received I2C data.");
+  
   for(int i=0; i < howMany; ++i){
       if(!Wire.available()) break;
-      char cmd = Wire.read();
-      
-      if(cmd == I2C_WAKEUP){
-        wakeUp();
-      } else if(cmd == I2C_SLEEP){
-        gotoSleep();
-      } else if(cmd == I2C_ATTENTION){
-        //TODO
-      }
+      char sender = Wire.read();                
+      char cmd = Wire.read(); 
+      processI2CCommand(sender, cmd);
   }
 }
 
 void i2cMasterLoop(){
+  
+  i2cSendToSlaves(I2C_ID_MASTER, getI2CCommand());
+
   for(unsigned int i=0; i < sizeof(i2cDeviceIDs) / sizeof(int); ++i){
+
     int deviceIDRequest = i2cDeviceIDs[i];
-    Wire.requestFrom(deviceIDRequest, 1);    
+    if(deviceIDRequest == I2C_ID_MASTER) continue;
+
+    Wire.requestFrom(deviceIDRequest, 2);    
     
     while(Wire.available()){ 
-      char cmd = Wire.read();    
-
-      for(unsigned int j=0; j < sizeof(i2cDeviceIDs) / sizeof(int); ++j){
-        int deviceIDSend = i2cDeviceIDs[j];
-        
-        if(deviceIDSend == deviceIDRequest) continue;
-
-        Wire.beginTransmission(deviceIDSend);
-        Wire.write(cmd);
-        Wire.endTransmission();
-      }
+      char sender = Wire.read();                
+      char cmd = Wire.read();
+                  
+      i2cSendToSlaves(sender, cmd);
+      processI2CCommand(sender, cmd);      
     }
 
   }
+}
+
+void i2cSendToSlaves(int senderID, char cmd){
+  if(cmd == 0){ return; }
+
+  for(unsigned int j=0; j < sizeof(i2cDeviceIDs) / sizeof(int); ++j){
+      int deviceIDTarget = i2cDeviceIDs[j];    
+      if(deviceIDTarget == senderID || deviceIDTarget == I2C_ID_MASTER) continue;            
+      i2cSend(deviceIDTarget, cmd);
+    }    
+}
+
+void i2cSend(int deviceID, char cmd) {
+  if(cmd == 0){ return; } 
+  Wire.beginTransmission(deviceID);
+  char data[] = {(char) deviceID, cmd};
+  Wire.write(data,sizeof(data));
+  Wire.endTransmission();
 }
 
 void pulsateFloraLED(){
@@ -233,7 +276,7 @@ void loop() {
   pulsateFloraLED();
 
   int proximity = calculate_distance(analogRead(IR_PIN));
-  Serial.println(proximity);
+  //Serial.println(proximity);
   
   if(proximity < MediumProximity && !isAwake){
     wakeUp();
@@ -245,6 +288,8 @@ void loop() {
 
   if(secondsSinceLastAwakening() >= SLEEP_TIMEOUT) gotoSleep();
 
+  #if I2C_IS_MASTER
   i2cMasterLoop();
+  #endif
   delay(50);
 }
