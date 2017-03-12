@@ -19,8 +19,9 @@
 #define SERVO_CALIBRATE_PIN 11
 #define BUZZER_PIN 2
 
-#define I2C_ID 2
-#define I2C_OK 'k'
+#define I2C_ID_MASTER 2
+#define I2C_ID_SLAVE1 3
+#define I2C_ID_SLAVE2 4
 #define I2C_WAKEUP 'w'
 #define I2C_SLEEP 's'
 #define I2C_ATTENTION 'a'
@@ -35,6 +36,7 @@
 #define FEET_LOOKAROUND_ANGLE 20
 #define HEAD_LOOKAROUND_ANGLE 20
 
+int i2cDeviceIDs[] = {I2C_ID_MASTER, I2C_ID_SLAVE1, I2C_ID_SLAVE2};
 Servo servoFeet;
 Servo servoHead;
 Servo servoCalibration;
@@ -65,7 +67,7 @@ void setup() {
   Serial.begin(BAUD_RATE);
   setupPins();
 
-  Wire.begin(I2C_ID);
+  Wire.begin(I2C_ID_MASTER);
   Wire.onRequest(onRequestEvent);
   Wire.onReceive(onReceiveEvent);
 
@@ -82,13 +84,13 @@ void calibrate(){
   servoCalibration.write(180);
 }
 
-void onRequestEvent()
-{
-  Wire.write(I2C_OK);
+void onRequestEvent() {
+  if(isAwake){
+    Wire.write(I2C_WAKEUP);
+  }
 }
 
-void onReceiveEvent(int howMany)
-{
+void onReceiveEvent(int howMany) {
   for(int i=0; i < howMany; ++i){
       if(!Wire.available()) break;
       char cmd = Wire.read();
@@ -100,6 +102,28 @@ void onReceiveEvent(int howMany)
       } else if(cmd == I2C_ATTENTION){
         //TODO
       }
+  }
+}
+
+void i2cMasterLoop(){
+  for(unsigned int i=0; i < sizeof(i2cDeviceIDs) / sizeof(int); ++i){
+    int deviceIDRequest = i2cDeviceIDs[i];
+    Wire.requestFrom(deviceIDRequest, 1);    
+    
+    while(Wire.available()){ 
+      char cmd = Wire.read();    
+
+      for(unsigned int j=0; j < sizeof(i2cDeviceIDs) / sizeof(int); ++j){
+        int deviceIDSend = i2cDeviceIDs[j];
+        
+        if(deviceIDSend == deviceIDRequest) continue;
+
+        Wire.beginTransmission(deviceIDSend);
+        Wire.write(cmd);
+        Wire.endTransmission();
+      }
+    }
+
   }
 }
 
@@ -220,5 +244,6 @@ void loop() {
 
   if(secondsSinceLastAwakening() >= SLEEP_TIMEOUT) gotoSleep();
 
+  i2cMasterLoop();
   delay(50);
 }
