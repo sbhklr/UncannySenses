@@ -61,6 +61,7 @@ void setupPins(){
   pinMode(SERVO_FEET_PIN, OUTPUT);
   pinMode(SERVO_HEAD_PIN, OUTPUT);
   pinMode(SERVO_CALIBRATE_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
 }
 
 void setup() {
