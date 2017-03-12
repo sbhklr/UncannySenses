@@ -39,11 +39,11 @@
 #define FEET_LOOKAROUND_ANGLE 20
 #define HEAD_LOOKAROUND_ANGLE 20
 
-//int i2cDeviceIDs[] = {I2C_ID_SLAVE1, I2C_ID_SLAVE2};
-int i2cDeviceIDs[] = {I2C_ID_MASTER, I2C_ID_SLAVE2};
+char i2cDeviceIDs[] = {I2C_ID_MASTER, I2C_ID_SLAVE2};
 Servo servoFeet;
 Servo servoHead;
 Servo servoCalibration;
+char currentI2CCommand = 0;
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(AMOUNT_OF_FLORA_PIXELS, FLORA_LED_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -94,7 +94,21 @@ void calibrate(){
   servoCalibration.write(180);
 }
 
-void processI2CCommand(int senderID, char cmd){
+bool senderIsValid(char senderID) {
+  if(senderID <= 0) return false;
+  
+  for(char device : i2cDeviceIDs){
+    if(device == senderID) return true;
+  }
+
+  return false;
+}
+
+bool commandIsValid(char command){
+  return command > 0;
+}
+
+void processI2CCommand(char senderID, char cmd){
   if(cmd == 0) return;
 
   if(cmd == I2C_WAKEUP){
@@ -106,16 +120,14 @@ void processI2CCommand(int senderID, char cmd){
   }
 }
 
-char getI2CCommand(){
-  if(isAwake){
-    return I2C_WAKEUP;
-  } else {    
-    return 0;
-  }
+char pollI2CCommand(){
+  char cmd = currentI2CCommand;
+  currentI2CCommand = 0;
+  return cmd;
 }
 
 void onRequestEvent() {
-  char cmd = getI2CCommand();
+  char cmd = pollI2CCommand();
 
   if(cmd != 0){
     Wire.write(cmd);
@@ -136,19 +148,19 @@ void onReceiveEvent(int howMany) {
 
 void i2cMasterLoop(){
   
-  i2cSendToSlaves(I2C_ID_MASTER, getI2CCommand());
+  i2cSendToSlaves(I2C_ID_MASTER, pollI2CCommand());
 
-  for(unsigned int i=0; i < sizeof(i2cDeviceIDs) / sizeof(int); ++i){
-
-    int deviceIDRequest = i2cDeviceIDs[i];
+  for(char deviceIDRequest : i2cDeviceIDs){
+    
     if(deviceIDRequest == I2C_ID_MASTER) continue;
 
-    Wire.requestFrom(deviceIDRequest, 2);    
+    int bytesReceived = Wire.requestFrom(deviceIDRequest, 2);    
     
-    while(Wire.available()){ 
-      char sender = Wire.read();                
+    while(bytesReceived == 2 && Wire.available()){ 
+      char sender = Wire.read();      
       char cmd = Wire.read();
-                  
+      if(!senderIsValid(sender) || !commandIsValid(cmd)) continue;
+                                    
       i2cSendToSlaves(sender, cmd);
       processI2CCommand(sender, cmd);      
     }
@@ -156,20 +168,30 @@ void i2cMasterLoop(){
   }
 }
 
-void i2cSendToSlaves(int senderID, char cmd){
-  if(cmd == 0){ return; }
+void i2cSendToSlaves(char senderID, char cmd){
+  if(cmd == 0) return;
 
-  for(unsigned int j=0; j < sizeof(i2cDeviceIDs) / sizeof(int); ++j){
-      int deviceIDTarget = i2cDeviceIDs[j];    
-      if(deviceIDTarget == senderID || deviceIDTarget == I2C_ID_MASTER) continue;            
-      i2cSend(deviceIDTarget, cmd);
+  for(char receiverID : i2cDeviceIDs){
+       
+      if(receiverID == senderID || receiverID == I2C_ID_MASTER) continue;
+
+      Serial.print("Sending cmd ");
+      Serial.print(cmd);
+      Serial.print(" from ");
+      Serial.print(senderID, BIN);
+      Serial.print(" to ");
+      Serial.print(receiverID, BIN);
+      Serial.println();
+
+      i2cSend(receiverID, cmd);
     }    
 }
 
-void i2cSend(int deviceID, char cmd) {
-  if(cmd == 0){ return; } 
+void i2cSend(char deviceID, char cmd) {  
+  if(cmd == 0) return;
+
   Wire.beginTransmission(deviceID);
-  char data[] = {(char) deviceID, cmd};
+  char data[] = {deviceID, cmd};
   Wire.write(data,sizeof(data));
   Wire.endTransmission();
 }
@@ -209,7 +231,6 @@ void setServoPosition(Servo servo, int position){
 }
 
 void shakeHead() {
-  ohhhSound(BUZZER_PIN);
   int originalFeetPosition = servoFeet.read();
   setServoPosition(servoFeet, originalFeetPosition - 10);
   delay(100);
@@ -217,6 +238,7 @@ void shakeHead() {
   delay(100);
   setServoPosition(servoFeet, originalFeetPosition);
   delay(100);
+  ohhhSound(BUZZER_PIN);
 }
 
 void lookUp(){
@@ -232,22 +254,22 @@ bool shouldBackOff(){
 void gotoSleep(){
   if(!isAwake){ return; }
   Serial.println("Go to sleep.");
-  ohnoSound(BUZZER_PIN);
   setServoPosition(servoFeet, FEET_SLEEP_ANGLE);
   setServoPosition(servoHead, HEAD_SLEEP_ANGLE);
   isAwake = false;
+  ohnoSound(BUZZER_PIN);
 }
 
 void wakeUp(){
   lastAwake = millis();  
   if(isAwake){ return; }
-  Serial.println("Wake up.");
-  squeakSound(BUZZER_PIN);
+  Serial.println("Wake up.");  
 
   int direction = randomDirection();
   setServoPosition(servoFeet, servoFeet.read() + FEET_WAKEUP_ANGLE * direction);
   setServoPosition(servoHead, servoHead.read() + HEAD_WAKEUP_ANGLE);
   isAwake = true;
+  squeakSound(BUZZER_PIN);
 }
 
 void lookAround(){
@@ -282,6 +304,8 @@ void loop() {
   //Serial.println(proximity);
   
   if(proximity < MediumProximity && !isAwake){
+    Serial.println("Obstacle detected.");
+    currentI2CCommand = I2C_WAKEUP;
     wakeUp();
     delay(1500);
     lookAround();    
@@ -291,7 +315,7 @@ void loop() {
 
   if(secondsSinceLastAwakening() >= SLEEP_TIMEOUT) gotoSleep();
 
-  #if I2C_IS_MASTER
+  #if I2C_IS_MASTER && USE_I2C
   i2cMasterLoop();
   #endif
   delay(50);
