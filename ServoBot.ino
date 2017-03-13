@@ -2,7 +2,7 @@
 #include <Wire.h>
 #include "SoundEffects.h"
 #include "Adafruit_NeoPixel.h"
-#include "Communication.h"
+#include "I2CManager.h"
 
 #define BAUD_RATE 9600
 
@@ -45,6 +45,7 @@ Servo servoHead;
 Servo servoCalibration;
 char currentI2CCommand = 0;
 
+I2CManager i2cManager = I2CManager();
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(AMOUNT_OF_FLORA_PIXELS, FLORA_LED_PIN, NEO_GRB + NEO_KHZ800);
 
 bool isAwake = true;
@@ -148,7 +149,7 @@ void onReceiveEvent(int howMany) {
 
 void i2cMasterLoop(){
   
-  i2cSendToSlaves(I2C_ID_MASTER, pollI2CCommand());
+  i2cManager.i2cSendToSlaves(i2cDeviceIDs, I2C_ID_MASTER, pollI2CCommand());
 
   for(char deviceIDRequest : i2cDeviceIDs){
     
@@ -161,39 +162,11 @@ void i2cMasterLoop(){
       char cmd = Wire.read();
       if(!senderIsValid(sender) || !commandIsValid(cmd)) continue;
                                     
-      i2cSendToSlaves(sender, cmd);
+      i2cManager.i2cSendToSlaves(i2cDeviceIDs, sender, cmd);
       processI2CCommand(sender, cmd);      
     }
 
   }
-}
-
-void i2cSendToSlaves(char senderID, char cmd){
-  if(cmd == 0) return;
-
-  for(char receiverID : i2cDeviceIDs){
-       
-      if(receiverID == senderID || receiverID == I2C_ID_MASTER) continue;
-
-      Serial.print("Sending cmd ");
-      Serial.print(cmd);
-      Serial.print(" from ");
-      Serial.print(senderID, BIN);
-      Serial.print(" to ");
-      Serial.print(receiverID, BIN);
-      Serial.println();
-
-      i2cSend(receiverID, cmd);
-    }    
-}
-
-void i2cSend(char deviceID, char cmd) {  
-  if(cmd == 0) return;
-
-  Wire.beginTransmission(deviceID);
-  char data[] = {deviceID, cmd};
-  Wire.write(data,sizeof(data));
-  Wire.endTransmission();
 }
 
 void pulsateFloraLED(){

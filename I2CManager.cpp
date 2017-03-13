@@ -1,8 +1,40 @@
-#include "Communication.h"
+#include "I2CManager.h"
 #include <Arduino.h>
 #include <Wire.h>
 
-void scanDevices(){
+#define I2C_ID_MASTER 2
+
+void I2CManager::i2cSendToSlaves(char deviceIDs[], char senderID, char cmd){
+  if(cmd == 0) return;
+
+  for(unsigned int j = 0; j < sizeof(deviceIDs) / sizeof(char); ++j){
+       
+      char receiverID = deviceIDs[j];
+
+      if(receiverID == senderID || receiverID == I2C_ID_MASTER) continue;
+
+      Serial.print("Sending cmd ");
+      Serial.print(cmd);
+      Serial.print(" from ");
+      Serial.print(senderID, BIN);
+      Serial.print(" to ");
+      Serial.print(receiverID, BIN);
+      Serial.println();
+
+      i2cSend(receiverID, cmd);
+    }    
+}
+
+void I2CManager::i2cSend(char deviceID, char cmd) {  
+  if(cmd == 0) return;
+
+  Wire.beginTransmission(deviceID);
+  char data[] = {deviceID, cmd};
+  Wire.write(data,sizeof(data));
+  Wire.endTransmission();
+}
+
+void I2CManager::scanDevices(){
   byte error, address;
   int nDevices;
  
