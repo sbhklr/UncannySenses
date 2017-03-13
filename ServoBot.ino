@@ -14,7 +14,7 @@
 #define FLORA_LED_PIN 8
 #define PIR_PIN 7
 #define IR_PIN A0
-#define SERVO_FEET_PIN 3
+#define SERVO_FEET_PIN 5
 #define SERVO_HEAD_PIN 6
 #define SERVO_CALIBRATE_PIN 11
 #define BUZZER_PIN 2
@@ -230,7 +230,7 @@ void gotoSleep(){
   setServoPosition(servoFeet, FEET_SLEEP_ANGLE);
   setServoPosition(servoHead, HEAD_SLEEP_ANGLE);
   isAwake = false;
-  ohnoSound(BUZZER_PIN);
+  //ohnoSound(BUZZER_PIN);
 }
 
 void wakeUp(){
