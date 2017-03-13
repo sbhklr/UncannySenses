@@ -1,15 +1,11 @@
 #include <Servo.h> 
 #include <Wire.h>
 #include "SoundEffects.h"
-#include "Adafruit_NeoPixel.h"
 #include "I2CManager.h"
+#include <ZTimer.h>
+#include "Flora.h"
 
 #define BAUD_RATE 9600
-
-//Flora Pixel Defines
-#define AMOUNT_OF_FLORA_PIXELS 1
-#define FLORA_MAX_BRIGHTNESS 255
-#define FLORA_BRIGHTNESS_STEP_SIZE 10
 
 #define FLORA_LED_PIN 8
 #define PIR_PIN 7
@@ -43,15 +39,14 @@ char i2cDeviceIDs[] = {I2C_ID_MASTER, I2C_ID_SLAVE2};
 Servo servoFeet;
 Servo servoHead;
 Servo servoCalibration;
+Flora flora = Flora(FLORA_LED_PIN);
+ZTimer floraTimer;
 char currentI2CCommand = 0;
 
 I2CManager i2cManager = I2CManager();
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(AMOUNT_OF_FLORA_PIXELS, FLORA_LED_PIN, NEO_GRB + NEO_KHZ800);
 
 bool isAwake = true;
 unsigned long lastAwake = 0;
-int currentLEDBrightness = 0;
-int pulsateDirection = 1;
 
 enum IRProximity {
   CloseProximity = 4,
@@ -59,8 +54,7 @@ enum IRProximity {
   FarProximity = 20
 };
 
-void setupPins(){
-  pinMode(FLORA_LED_PIN, OUTPUT);
+void setupPins(){  
   pinMode(PIR_PIN, INPUT);
   pinMode(IR_PIN, INPUT);
   pinMode(SERVO_FEET_PIN, OUTPUT);
@@ -73,6 +67,12 @@ void setup() {
   Serial.begin(BAUD_RATE);
   setupPins();
 
+  floraTimer.SetCallBack([&]() {
+    flora.update();    
+  });
+  floraTimer.SetWaitTime(1000 / Flora::BrightnessStepSize);
+  floraTimer.ResetTimer(true);
+
   #if USE_I2C
   Wire.begin(I2C_ID_MASTER);
   Wire.onReceive(onReceiveEvent);
@@ -82,8 +82,6 @@ void setup() {
   Wire.onRequest(onRequestEvent);
   #endif
 
-  pixels.begin();
-  pixels.setPixelColor(0, pixels.Color(0,0,0));
   servoFeet.attach(SERVO_FEET_PIN);
   servoHead.attach(SERVO_HEAD_PIN);
   calibrate();
@@ -167,13 +165,6 @@ void i2cMasterLoop(){
     }
 
   }
-}
-
-void pulsateFloraLED(){
-  currentLEDBrightness = currentLEDBrightness + (FLORA_BRIGHTNESS_STEP_SIZE * pulsateDirection);  
-  pixels.setPixelColor(0, pixels.Color(currentLEDBrightness,0,0));
-  pixels.show();
-  if(currentLEDBrightness + FLORA_BRIGHTNESS_STEP_SIZE > FLORA_MAX_BRIGHTNESS || currentLEDBrightness - FLORA_BRIGHTNESS_STEP_SIZE < 0) pulsateDirection *= -1;
 }
 
 int randomDirection(){
@@ -270,9 +261,8 @@ int secondsSinceLastAwakening(){
   return (millis() - lastAwake) / 1000;
 }
 
-void loop() {  
-  pulsateFloraLED();
-
+void loop() {    
+  floraTimer.CheckTime();
   int proximity = calculate_distance(analogRead(IR_PIN));
   //Serial.println(proximity);
   
