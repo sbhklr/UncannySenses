@@ -25,6 +25,8 @@
 #define I2C_SLEEP 's'
 #define I2C_ATTENTION 'a'
 
+#define I2C_INTERVAL 100
+#define FLORA_PULSE_TIME 1000
 #define SLEEP_TIMEOUT 8
 
 #define HEAD_LOOKUP_ANGLE 150
@@ -41,6 +43,7 @@ Servo servoHead;
 Servo servoCalibration;
 Flora flora = Flora(FLORA_LED_PIN);
 ZTimer floraTimer;
+ZTimer i2cTimer;
 char currentI2CCommand = 0;
 
 I2CManager i2cManager = I2CManager();
@@ -63,15 +66,26 @@ void setupPins(){
   pinMode(BUZZER_PIN, OUTPUT);
 }
 
-void setup() {
-  Serial.begin(BAUD_RATE);
-  setupPins();
-
+void setupTimers(){
   floraTimer.SetCallBack([&]() {
     flora.update();    
   });
-  floraTimer.SetWaitTime(1000 / Flora::BrightnessStepSize);
+  floraTimer.SetWaitTime(FLORA_PULSE_TIME / Flora::BrightnessStepSize);
   floraTimer.ResetTimer(true);
+
+  i2cTimer.SetCallBack([&]() {
+    #if I2C_IS_MASTER && USE_I2C
+    i2cMasterLoop();
+    #endif  
+  });
+  i2cTimer.SetWaitTime(I2C_INTERVAL);
+  i2cTimer.ResetTimer(true);
+}
+
+void setup() {
+  Serial.begin(BAUD_RATE);
+  setupPins();
+  setupTimers();
 
   #if USE_I2C
   Wire.begin(I2C_ID_MASTER);
@@ -278,8 +292,6 @@ void loop() {
 
   if(secondsSinceLastAwakening() >= SLEEP_TIMEOUT) gotoSleep();
 
-  #if I2C_IS_MASTER && USE_I2C
-  i2cMasterLoop();
-  #endif
+  i2cTimer.CheckTime();
   delay(50);
 }
