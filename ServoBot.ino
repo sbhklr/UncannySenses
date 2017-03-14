@@ -26,7 +26,7 @@
 #define I2C_ATTENTION 'a'
 
 #define I2C_INTERVAL 100
-#define FLORA_PULSE_TIME 1000
+#define FLORA_PULSE_TIME 3000
 #define SLEEP_TIMEOUT 8000
 
 #define HEAD_LOOKUP_ANGLE 150
@@ -72,7 +72,7 @@ void setupTimers(){
   floraTimer.SetCallBack([&]() {
     flora.update();    
   });
-  floraTimer.SetWaitTime(FLORA_PULSE_TIME / Flora::BrightnessStepSize);
+  floraTimer.SetWaitTime(FLORA_PULSE_TIME / Flora::steps / 2);
   floraTimer.ResetTimer(true);
 
   #if I2C_IS_MASTER && USE_I2C
@@ -303,5 +303,5 @@ void loop() {
 
   sleepTimer.CheckTime();
   i2cTimer.CheckTime();
-  delay(50);
+  delay(25);
 }

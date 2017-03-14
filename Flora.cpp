@@ -3,7 +3,6 @@
 
 //Flora Pixel Defines
 #define AMOUNT_OF_FLORA_PIXELS 1
-#define FLORA_MAX_BRIGHTNESS 255
 
 
 Flora::Flora(int ledPin) : _ledPin(ledPin) {

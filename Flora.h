@@ -3,9 +3,12 @@
 
 #include "Adafruit_NeoPixel.h"
 
+#define FLORA_MAX_BRIGHTNESS 255
+
 class Flora {	
  public:
- 	static const int BrightnessStepSize = 10; 	
+ 	static const int BrightnessStepSize = 5; 	
+ 	static const int steps = FLORA_MAX_BRIGHTNESS / BrightnessStepSize; 	
  	void update();
  	Flora(int ledPin);
 
