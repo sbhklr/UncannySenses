@@ -45,6 +45,7 @@ Flora flora = Flora(FLORA_LED_PIN);
 ZTimer floraTimer;
 ZTimer i2cTimer;
 ZTimer lookAroundTimer;
+ZTimer lookUpAndDownTimer;
 ZTimer sleepTimer;
 char currentI2CCommand = 0;
 
@@ -82,6 +83,9 @@ void setupTimers(){
 
   lookAroundTimer.SetWaitTime(1500);
   lookAroundTimer.SetCallBack(lookAround);
+
+  lookUpAndDownTimer.SetWaitTime(350);
+  lookUpAndDownTimer.SetCallBack(lookUpAndDown);
 
   sleepTimer.SetWaitTime(SLEEP_TIMEOUT);
   sleepTimer.SetCallBack(gotoSleep);  
@@ -258,20 +262,24 @@ void wakeUp(){
 void lookAround(){
   lookAroundTimer.StopTimer();
   Serial.println("Look around.");
-  int originalFeetPosition = servoFeet.read();
-  int originalHeadPosition = servoHead.read();
+  int originalFeetPosition = servoFeet.read();  
 
-  setServoPosition(servoFeet, originalFeetPosition - random(FEET_LOOKAROUND_ANGLE));
-  if(shouldBackOff()){shakeHead(); return;}  
+  setServoPosition(servoFeet, originalFeetPosition - random(FEET_LOOKAROUND_ANGLE)); 
   delay(750);
   setServoPosition(servoFeet, originalFeetPosition + random(FEET_LOOKAROUND_ANGLE));
   if(shouldBackOff()){shakeHead(); return;}  
   delay(1000);
-  setServoPosition(servoFeet, originalFeetPosition);
-  if(shouldBackOff()){shakeHead(); return;}  
-  delay(350);
+  setServoPosition(servoFeet, originalFeetPosition);  
+  lookUpAndDownTimer.ResetTimer(false);
+  sleepTimer.ResetTimer(false);
+}
+
+void lookUpAndDown(){
+  lookUpAndDownTimer.StopTimer();
+  Serial.println("Look up and down.");
+  int originalHeadPosition = servoHead.read();
+
   setServoPosition(servoHead, servoHead.read() + HEAD_LOOKAROUND_ANGLE);
-  if(shouldBackOff()){shakeHead(); return;}  
   delay(1500);
   setServoPosition(servoHead, originalHeadPosition);
   sleepTimer.ResetTimer(false);
@@ -279,7 +287,10 @@ void lookAround(){
 
 void loop() {    
   floraTimer.CheckTime();
+  if(shouldBackOff()){shakeHead(); return;}
+
   lookAroundTimer.CheckTime();
+  lookUpAndDownTimer.CheckTime();
   int proximity = calculate_distance(analogRead(IR_PIN));
   //Serial.println(proximity);
   
@@ -289,8 +300,6 @@ void loop() {
     wakeUp();
     lookAroundTimer.ResetTimer(false);   
   }
-
-  if(shouldBackOff()){shakeHead(); return;}  
 
   sleepTimer.CheckTime();
   i2cTimer.CheckTime();
