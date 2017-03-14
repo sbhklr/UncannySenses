@@ -44,12 +44,13 @@ Servo servoCalibration;
 Flora flora = Flora(FLORA_LED_PIN);
 ZTimer floraTimer;
 ZTimer i2cTimer;
+ZTimer lookAroundTimer;
 char currentI2CCommand = 0;
 
 I2CManager i2cManager = I2CManager();
 
 bool isAwake = true;
-unsigned long lastAwake = 0;
+unsigned long lastAwake = -1;
 
 enum IRProximity {
   CloseProximity = 4,
@@ -73,13 +74,14 @@ void setupTimers(){
   floraTimer.SetWaitTime(FLORA_PULSE_TIME / Flora::BrightnessStepSize);
   floraTimer.ResetTimer(true);
 
-  i2cTimer.SetCallBack([&]() {
-    #if I2C_IS_MASTER && USE_I2C
-    i2cMasterLoop();
-    #endif  
-  });
+  #if I2C_IS_MASTER && USE_I2C
+  i2cTimer.SetCallBack(i2cMasterLoop);  
   i2cTimer.SetWaitTime(I2C_INTERVAL);
   i2cTimer.ResetTimer(true);
+  #endif  
+
+  lookAroundTimer.SetWaitTime(1500);
+  lookAroundTimer.SetCallBack(lookAround);
 }
 
 void setup() {
@@ -239,7 +241,7 @@ void gotoSleep(){
 }
 
 void wakeUp(){
-  lastAwake = millis();  
+  lastAwake = millis();    
   if(isAwake){ return; }
   Serial.println("Wake up.");  
 
@@ -251,6 +253,7 @@ void wakeUp(){
 }
 
 void lookAround(){
+  lookAroundTimer.StopTimer();
   Serial.println("Look around.");
   int originalFeetPosition = servoFeet.read();
   int originalHeadPosition = servoHead.read();
@@ -271,12 +274,13 @@ void lookAround(){
 }
 
 int secondsSinceLastAwakening(){
-  if(lastAwake == 0) return -1;
+  if(lastAwake < 0) return -1;
   return (millis() - lastAwake) / 1000;
 }
 
 void loop() {    
   floraTimer.CheckTime();
+  lookAroundTimer.CheckTime();
   int proximity = calculate_distance(analogRead(IR_PIN));
   //Serial.println(proximity);
   
@@ -284,8 +288,7 @@ void loop() {
     Serial.println("Obstacle detected.");
     currentI2CCommand = I2C_WAKEUP;
     wakeUp();
-    delay(1500);
-    lookAround();    
+    lookAroundTimer.ResetTimer(false);    
   }
 
   if(shouldBackOff()){shakeHead(); return;}  
