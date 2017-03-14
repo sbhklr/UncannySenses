@@ -27,7 +27,7 @@
 
 #define I2C_INTERVAL 100
 #define FLORA_PULSE_TIME 1000
-#define SLEEP_TIMEOUT 8
+#define SLEEP_TIMEOUT 8000
 
 #define HEAD_LOOKUP_ANGLE 150
 #define HEAD_SLEEP_ANGLE 60
@@ -45,12 +45,12 @@ Flora flora = Flora(FLORA_LED_PIN);
 ZTimer floraTimer;
 ZTimer i2cTimer;
 ZTimer lookAroundTimer;
+ZTimer sleepTimer;
 char currentI2CCommand = 0;
 
 I2CManager i2cManager = I2CManager();
 
 bool isAwake = true;
-unsigned long lastAwake = -1;
 
 enum IRProximity {
   CloseProximity = 4,
@@ -82,6 +82,9 @@ void setupTimers(){
 
   lookAroundTimer.SetWaitTime(1500);
   lookAroundTimer.SetCallBack(lookAround);
+
+  sleepTimer.SetWaitTime(SLEEP_TIMEOUT);
+  sleepTimer.SetCallBack(gotoSleep);  
 }
 
 void setup() {
@@ -241,7 +244,6 @@ void gotoSleep(){
 }
 
 void wakeUp(){
-  lastAwake = millis();    
   if(isAwake){ return; }
   Serial.println("Wake up.");  
 
@@ -250,6 +252,7 @@ void wakeUp(){
   setServoPosition(servoHead, servoHead.read() + HEAD_WAKEUP_ANGLE);
   isAwake = true;
   squeakSound(BUZZER_PIN);
+  sleepTimer.ResetTimer(false);
 }
 
 void lookAround(){
@@ -271,11 +274,7 @@ void lookAround(){
   if(shouldBackOff()){shakeHead(); return;}  
   delay(1500);
   setServoPosition(servoHead, originalHeadPosition);
-}
-
-int secondsSinceLastAwakening(){
-  if(lastAwake < 0) return -1;
-  return (millis() - lastAwake) / 1000;
+  sleepTimer.ResetTimer(false);
 }
 
 void loop() {    
@@ -288,13 +287,12 @@ void loop() {
     Serial.println("Obstacle detected.");
     currentI2CCommand = I2C_WAKEUP;
     wakeUp();
-    lookAroundTimer.ResetTimer(false);    
+    lookAroundTimer.ResetTimer(false);   
   }
 
   if(shouldBackOff()){shakeHead(); return;}  
 
-  if(secondsSinceLastAwakening() >= SLEEP_TIMEOUT) gotoSleep();
-
+  sleepTimer.CheckTime();
   i2cTimer.CheckTime();
   delay(50);
 }
