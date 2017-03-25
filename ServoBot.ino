@@ -12,7 +12,6 @@
 #define IR_PIN A0
 #define SERVO_FEET_PIN 5
 #define SERVO_HEAD_PIN 6
-#define SERVO_CALIBRATE_PIN 11
 #define BUZZER_PIN 2
 
 #define USE_I2C true
@@ -63,8 +62,7 @@ void setupPins(){
   pinMode(PIR_PIN, INPUT);
   pinMode(IR_PIN, INPUT);
   pinMode(SERVO_FEET_PIN, OUTPUT);
-  pinMode(SERVO_HEAD_PIN, OUTPUT);
-  pinMode(SERVO_CALIBRATE_PIN, OUTPUT);
+  pinMode(SERVO_HEAD_PIN, OUTPUT);  
   pinMode(BUZZER_PIN, OUTPUT);
 }
 
@@ -106,14 +104,8 @@ void setup() {
   #endif
 
   servoFeet.attach(SERVO_FEET_PIN);
-  servoHead.attach(SERVO_HEAD_PIN);
-  calibrate();
+  servoHead.attach(SERVO_HEAD_PIN);  
   gotoSleep();
-}
-
-void calibrate(){  
-  servoCalibration.attach(SERVO_CALIBRATE_PIN);
-  servoCalibration.write(180);
 }
 
 bool senderIsValid(char senderID) {
