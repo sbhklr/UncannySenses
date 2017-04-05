@@ -36,7 +36,7 @@
 #define FEET_LOOKAROUND_ANGLE 20
 #define HEAD_LOOKAROUND_ANGLE 20
 
-char i2cDeviceIDs[] = {I2C_ID_MASTER, I2C_ID_SLAVE2};
+char i2cDeviceIDs[] = {I2C_ID_MASTER, I2C_ID_SLAVE1, I2C_ID_SLAVE2};
 Servo servoFeet;
 Servo servoHead;
 Servo servoCalibration;
@@ -162,8 +162,10 @@ void onReceiveEvent(int howMany) {
 
 void i2cMasterLoop(){
   
+  //Process send the master's command  
   i2cManager.i2cSendToSlaves(i2cDeviceIDs, I2C_ID_MASTER, pollI2CCommand());
 
+  //Request the slaves' commands
   for(char deviceIDRequest : i2cDeviceIDs){
     
     if(deviceIDRequest == I2C_ID_MASTER) continue;
@@ -295,5 +297,5 @@ void loop() {
 
   sleepTimer.CheckTime();
   i2cTimer.CheckTime();
-  delay(25);
+  delay(20);
 }
