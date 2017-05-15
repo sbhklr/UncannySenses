@@ -6,8 +6,9 @@
 
 void I2CManager::i2cSendToSlaves(char deviceIDs[], char senderID, char cmd){
   if(cmd == 0) return;
-
-  for(unsigned int j = 0; j < sizeof(deviceIDs) / sizeof(char); ++j){
+  
+  //FIXME this doesn't seem to loop over the last element in the array
+  for(unsigned int j = 0; j < (sizeof(deviceIDs) / sizeof(char)); ++j){
        
       char receiverID = deviceIDs[j];
 
@@ -16,9 +17,9 @@ void I2CManager::i2cSendToSlaves(char deviceIDs[], char senderID, char cmd){
       Serial.print("Sending cmd ");
       Serial.print(cmd);
       Serial.print(" from ");
-      Serial.print(senderID, BIN);
+      Serial.print(senderID, DEC);
       Serial.print(" to ");
-      Serial.print(receiverID, BIN);
+      Serial.print(receiverID, DEC);
       Serial.println();
 
       i2cSend(receiverID, cmd);
